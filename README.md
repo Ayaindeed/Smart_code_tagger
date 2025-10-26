@@ -76,8 +76,6 @@ The app can create quick sample projects (ML, Web API, React) placed under `samp
 
 ## Architecture diagram
 
-Below is an architecture diagram illustrating the main components and data flow of Smart Code Tagger. This image was derived from the repository's mermaid diagram and is included in the project at `assets/diag.png`.
-
 ![Architecture diagram](assets/diag.png)
 
 Figure: Architecture diagram — based on `mermaid_diagram.md` and `architecture_diagram.md` in the repo.
