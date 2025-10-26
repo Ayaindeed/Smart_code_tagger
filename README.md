@@ -238,9 +238,3 @@ The app can create quick sample projects (ML, Web API, React) placed under `samp
 - Primary language detection is based on file extensions with a Pygments fallback.
 - The TF-IDF processor weights imports and documentation more heavily to favor technology and intent signals.
 - Tag suggestions include reasoning and confidence level (`Very High` → `Very Low`) to help triage.
-
-## Contributing
-
-1. Fork the repo and create a branch for your feature.
-2. Run and add tests for new behavior (`pytest`).
-3. Submit a PR with a clear description and any design notes.
