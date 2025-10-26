@@ -1,0 +1,13 @@
+streamlit
+scikit-learn
+pandas
+numpy
+requests
+nltk
+pygments
+gitpython
+pathspec
+networkx
+pyvis
+python-multipart
+graphviz
