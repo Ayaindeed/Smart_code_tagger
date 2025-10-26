@@ -78,8 +78,6 @@ The app can create quick sample projects (ML, Web API, React) placed under `samp
 
 ![Architecture diagram](assets/diag.png)
 
-Figure: Architecture diagram — based on `mermaid_diagram.md` and `architecture_diagram.md` in the repo.
-
 ## Contributing
 
 1. Fork the repo and create a branch for your feature.
