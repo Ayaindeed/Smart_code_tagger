@@ -55,7 +55,16 @@ class CodeAnalyzer:
         with tempfile.TemporaryDirectory() as temp_dir:
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
-            return self._analyze_directory(temp_dir)
+            
+            # Check if there's a single top-level directory (common with GitHub downloads)
+            temp_path = Path(temp_dir)
+            contents = list(temp_path.iterdir())
+            
+            # If there's only one directory at the top level, analyze that instead
+            if len(contents) == 1 and contents[0].is_dir():
+                return self._analyze_directory(str(contents[0]))
+            else:
+                return self._analyze_directory(temp_dir)
     
     def _analyze_directory(self, dir_path: str) -> Dict[str, any]:
         """Analyze all relevant files in a directory."""
@@ -106,10 +115,12 @@ class CodeAnalyzer:
         
         # Find README files
         readme_files = list(path.glob('README*')) + list(path.glob('readme*'))
+        
         for readme_file in readme_files:
             try:
                 with open(readme_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    results['readme_content'] += f.read() + '\n'
+                    content = f.read()
+                    results['readme_content'] += content + '\n'
             except Exception:
                 pass
         

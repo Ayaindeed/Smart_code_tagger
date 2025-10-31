@@ -222,6 +222,12 @@ class LanguageSpecificTFIDF:
         if not weighted_text:
             return {'terms': {}, 'top_terms': []}
         
+        # Filter out empty strings
+        weighted_text = [text for text in weighted_text if text.strip()]
+        
+        if not weighted_text:
+            return {'terms': {}, 'top_terms': []}
+
         # Create custom TF-IDF
         vectorizer = TfidfVectorizer(
             max_features=1000,
@@ -230,31 +236,31 @@ class LanguageSpecificTFIDF:
             min_df=1,
             max_df=0.95
         )
-        
+
         try:
             tfidf_matrix = vectorizer.fit_transform(weighted_text)
             feature_names = vectorizer.get_feature_names_out()
-            
+
             # Calculate mean TF-IDF scores
             mean_scores = np.mean(tfidf_matrix.toarray(), axis=0)
-            
+
             # Create term -> score mapping
             term_scores = dict(zip(feature_names, mean_scores))
-            
+
             # Apply domain-specific boosting
             boosted_scores = self._apply_domain_boosting(term_scores, language)
-            
+
             # Get top terms
             top_terms = sorted(boosted_scores.items(), key=lambda x: x[1], reverse=True)[:50]
-            
+
             return {
                 'terms': boosted_scores,
                 'top_terms': top_terms,
                 'vectorizer': vectorizer
             }
-            
+
         except Exception as e:
-            print(f"TF-IDF extraction failed: {e}")
+            # Return empty results on failure instead of crashing
             return {'terms': {}, 'top_terms': []}
     
     def _apply_domain_boosting(self, term_scores: Dict[str, float], language: str) -> Dict[str, float]:

@@ -590,7 +590,7 @@ def display_analysis_results(analysis_results, tfidf_results, tag_suggestions,
         
         with detail_tab1:
             st.markdown("### Most Important Terms (TF-IDF)")
-            top_terms = tfidf_results.get('top_terms', [])[:20]
+            top_terms = tfidf_results.get('tfidf_features', {}).get('top_terms', [])[:20]
             if top_terms:
                 df_terms = pd.DataFrame(top_terms, columns=['Term', 'TF-IDF Score'])
                 df_terms['TF-IDF Score'] = df_terms['TF-IDF Score'].round(3)
@@ -731,6 +731,77 @@ def get_confidence_color(confidence):
         return "yellow"
     else:
         return "red"
+
+
+def perform_analysis(codebase_path, repo_name, min_confidence, max_tags, show_reasoning,
+                    include_language, include_technology, include_domain, include_quality):
+    """Perform the complete analysis and display results."""
+    # Enhanced progress tracking with better UX
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        # Initialize components
+        status_text.text("🔧 Initializing AI components...")
+        progress_bar.progress(10)
+        
+        analyzer = CodeAnalyzer()
+        tfidf_processor = LanguageSpecificTFIDF()
+        tag_engine = TagSuggestionEngine()
+        
+        # Step 1: Analyze codebase structure and content
+        status_text.text("📁 Scanning codebase structure...")
+        progress_bar.progress(25)
+        analysis_results = analyzer.analyze_codebase(codebase_path)
+        
+        # Step 2: Process with TF-IDF
+        status_text.text("🔤 Processing code patterns with TF-IDF...")
+        progress_bar.progress(60)
+        tfidf_results = tfidf_processor.process_codebase_analysis(analysis_results)
+        
+        # Step 3: Generate tag suggestions
+        status_text.text("🏷️ Generating intelligent tag suggestions...")
+        progress_bar.progress(85)
+        tag_suggestions = tag_engine.suggest_tags(tfidf_results, analysis_results)
+        
+        # Complete
+        status_text.text("✅ Analysis complete!")
+        progress_bar.progress(100)
+        
+        # Clear progress indicators
+        import time
+        time.sleep(1)
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Display results with centered layout for better readability
+        st.markdown("---")
+        
+        # Create a centered container for analytics - FULL WIDTH
+        analytics_col1, analytics_main, analytics_col2 = st.columns([0.5, 7, 0.5])
+        
+        with analytics_main:
+            st.markdown("## 📊 Analysis Results")
+            display_analysis_results(analysis_results, tfidf_results, tag_suggestions,
+                                   min_confidence, max_tags, show_reasoning,
+                                   include_language, include_technology, include_domain, include_quality)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ Analysis failed: {str(e)}")
+        with st.expander("🔍 Error Details"):
+            st.exception(e)
+        return False
+    
+    finally:
+        # Clean up temporary file
+        if codebase_path and (codebase_path.endswith('.zip') or 'temp_repos' in str(codebase_path)):
+            try:
+                os.unlink(codebase_path)
+            except:
+                pass
 
 
 # Page configuration
@@ -894,9 +965,6 @@ st.markdown("### 📤 Choose Your Codebase")
 # Create tabs for different input methods
 tab1, tab2, tab3 = st.tabs(["📁 Upload ZIP", "🔗 GitHub Repository", "🧪 Try Samples"])
 
-codebase_path = None
-repo_name = None
-
 with tab1:
     st.markdown("""
     <div class="upload-section">
@@ -921,9 +989,13 @@ with tab1:
         st.markdown(f"""
         <div class="success-banner">
         ✅ <strong>File uploaded successfully!</strong><br>
-        📁 {uploaded_file.name} ({uploaded_file.size:,} bytes)
+        📁 {uploaded_file.name} ({uploaded_file.size:,} bytes) - Starting analysis...
         </div>
         """, unsafe_allow_html=True)
+        
+        # Automatically start analysis
+        perform_analysis(codebase_path, repo_name, min_confidence, max_tags, show_reasoning,
+                       include_language, include_technology, include_domain, include_quality)
 
 with tab2:
     st.markdown("""
@@ -954,9 +1026,13 @@ with tab2:
                     <div class="success-banner">
                     ✅ <strong>Repository downloaded successfully!</strong><br>
                     🔗 {github_url}<br>
-                    📁 Ready for analysis
+                    📁 Starting analysis...
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    # Automatically start analysis
+                    perform_analysis(codebase_path, repo_name, min_confidence, max_tags, show_reasoning,
+                                   include_language, include_technology, include_domain, include_quality)
         else:
             st.error("Please enter a valid GitHub repository URL")
 
@@ -999,133 +1075,52 @@ with tab3:
                     with st.spinner(f"Creating {name}..."):
                         sample_path = create_sample_repository(info['key'])
                         if sample_path:
-                            codebase_path = sample_path
                             repo_name = name
                             st.markdown(f"""
                             <div class="success-banner">
                             ✅ <strong>Sample created!</strong><br> 
-                            📁 {name} ready for analysis
+                            📁 {name} - Starting analysis...
                             </div>
                             """, unsafe_allow_html=True)
+                            
+                            # Automatically start analysis
+                            perform_analysis(sample_path, repo_name, min_confidence, max_tags, show_reasoning,
+                                           include_language, include_technology, include_domain, include_quality)
 
-# Analysis section
-if codebase_path:
-    st.markdown("---")
-    st.markdown("### 🔍 Ready to Analyze!")
-    
-    analysis_col1, analysis_col2 = st.columns([2, 1])
-    
-    with analysis_col1:
-        st.markdown(f"""
-        **📁 Selected:** {repo_name if repo_name else 'Unknown repository'}
-        
-        Click the button below to start the AI-powered analysis of your codebase.
-        """)
-    
-    with analysis_col2:
-        analyze_button = st.button(
-            "🚀 Start Analysis", 
-            type="primary", 
-            use_container_width=True
-        )
-    
-    # Move analysis logic outside columns for full-width results
-    if analyze_button:
-        # Enhanced progress tracking with better UX
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        try:
-            # Initialize components
-            status_text.text("🔧 Initializing AI components...")
-            progress_bar.progress(10)
-            
-            analyzer = CodeAnalyzer()
-            tfidf_processor = LanguageSpecificTFIDF()
-            tag_engine = TagSuggestionEngine()
-            
-            # Step 1: Analyze codebase structure and content
-            status_text.text("📁 Scanning codebase structure...")
-            progress_bar.progress(25)
-            analysis_results = analyzer.analyze_codebase(codebase_path)
-            
-            # Step 2: Process with TF-IDF
-            status_text.text("🔤 Processing code patterns with TF-IDF...")
-            progress_bar.progress(60)
-            tfidf_results = tfidf_processor.process_codebase_analysis(analysis_results)
-            
-            # Step 3: Generate tag suggestions
-            status_text.text("🏷️ Generating intelligent tag suggestions...")
-            progress_bar.progress(85)
-            tag_suggestions = tag_engine.suggest_tags(tfidf_results, analysis_results)
-            
-            # Complete
-            status_text.text("✅ Analysis complete!")
-            progress_bar.progress(100)
-            
-            # Clear progress indicators
-            import time
-            time.sleep(1)
-            progress_bar.empty()
-            status_text.empty()
-            
-            # Display results with centered layout for better readability
-            st.markdown("---")
-            
-            # Create a centered container for analytics - FULL WIDTH
-            analytics_col1, analytics_main, analytics_col2 = st.columns([0.5, 7, 0.5])
-            
-            with analytics_main:
-                st.markdown('<div class="analytics-container">', unsafe_allow_html=True)
-                st.markdown("## 📊 Analysis Results")
-                display_analysis_results(analysis_results, tfidf_results, tag_suggestions,
-                                       min_confidence, max_tags, show_reasoning,
-                                       include_language, include_technology, include_domain, include_quality)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-        except Exception as e:
-            st.error(f"❌ Analysis failed: {str(e)}")
-            with st.expander("🔍 Error Details"):
-                st.exception(e)
-        
-        finally:
-            # Clean up temporary file
-            if codebase_path and (codebase_path.endswith('.zip') or 'temp_repos' in str(codebase_path)):
-                try:
-                    os.unlink(codebase_path)
-                except:
-                    pass
+# Show helpful information when no analysis is running
+st.markdown("---")
+st.markdown("### 🚀 Getting Started")
 
-else:
-    # Show helpful information when no codebase is selected
-    st.markdown("---")
-    st.markdown("### 🚀 Getting Started")
-    
-    col_info1, col_info2, col_info3 = st.columns(3)
-    
-    with col_info1:
-        st.markdown("""
-        <div class="step-card">
-        <h4>1️⃣ Choose Input</h4>
-        <p>Upload ZIP file, paste GitHub URL, or try a sample project</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_info2:
-        st.markdown("""
-        <div class="step-card">
-        <h4>2️⃣ Configure</h4>
-        <p>Adjust settings in the sidebar for personalized results</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_info3:
-        st.markdown("""
-        <div class="step-card">
-        <h4>3️⃣ Analyze</h4>
-        <p>Get AI-powered tag suggestions with confidence scores</p>
-        </div>
-        """, unsafe_allow_html=True)
+col_info1, col_info2, col_info3 = st.columns(3)
+
+with col_info1:
+    st.markdown("""
+    <div class="step-card">
+    <h4>1️⃣ Choose Input</h4>
+    <p>Upload ZIP file, paste GitHub URL, or try a sample project</p>
+    </div>
+                <style>
+    .step-card {
+        background-color: #6495ED;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+with col_info2:
+    st.markdown("""
+    <div class="step-card">
+    <h4>2️⃣ Configure</h4>
+    <p>Adjust settings in the sidebar for personalized results</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_info3:
+    st.markdown("""
+    <div class="step-card">
+    <h4>3️⃣ Analyze</h4>
+    <p>Get AI-powered tag suggestions with confidence scores</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # About section
 st.sidebar.markdown("---")
@@ -1150,6 +1145,7 @@ st.sidebar.markdown("""
 - Export capabilities
 - Quality metrics
 - Detailed reasoning
-
-Built with ❤️ using Streamlit & scikit-learn
+-----------
+    Built  by Aya R. with ❤️ 
+    using Streamlit & SL
 """)

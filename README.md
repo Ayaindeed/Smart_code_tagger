@@ -44,8 +44,8 @@ Open the URL shown by Streamlit in your browser. Use the UI to upload a ZIP, pas
 
 ## How to use
 
-- Upload a ZIP containing source files or paste a public GitHub repository URL.
-- The analyzer will (1) parse files, (2) extract docstrings/comments/identifiers/imports, (3) build TF-IDF features, and (4) generate tag suggestions with confidence and reasoning.
+- **Upload a ZIP** containing source files, **paste a GitHub repository URL**, or **try a sample project**.
+- The analyzer **automatically starts** when you upload/download and will: (1) parse files, (2) extract docstrings/comments/identifiers/imports, (3) build TF-IDF features, and (4) generate tag suggestions with confidence and reasoning.
 - Use sidebar options to tune min-confidence, max tags, and which tag categories to include.
 - Export suggestions as CSV, JSON or Markdown.
 
@@ -76,11 +76,61 @@ The app can create quick sample projects (ML, Web API, React) placed under `samp
 
 ## Architecture diagram
 
-Below is an architecture diagram illustrating the main components and data flow of Smart Code Tagger. This image was derived from the repository's mermaid diagram and is included in the project at `assets/diag.png`.
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   User Input    │    │  GitHub Repo    │    │   ZIP Upload    │
+│                 │    │   Download      │    │                 │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │     Code Analyzer       │
+                    │  ┌─────────────────┐    │
+                    │  │ Language Detect │    │
+                    │  │ AST Parsing     │    │
+                    │  │ Regex Patterns  │    │
+                    │  │ README Extract  │    │
+                    │  └─────────────────┘    │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │   TF-IDF Processor      │
+                    │  ┌─────────────────┐    │
+                    │  │ Text Weighting  │    │
+                    │  │ Domain Boosting │    │
+                    │  │ Term Extraction │    │
+                    │  │ Quality Metrics │    │
+                    │  └─────────────────┘    │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │    Tag Engine           │
+                    │  ┌─────────────────┐    │
+                    │  │ Pattern Match   │    │
+                    │  │ SO Validation   │    │
+                    │  │ Confidence Score│    │
+                    │  │ Categorization  │    │
+                    │  └─────────────────┘    │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │   Streamlit UI          │
+                    │  ┌─────────────────┐    │
+                    │  │ Results Display │    │
+                    │  │ Export Options  │    │
+                    │  │ Interactive UI  │    │
+                    │  │ Filtering       │    │
+                    │  └─────────────────┘    │
+                    └─────────────────────────┘
+```
 
-![Architecture diagram](assets/diag.png)
-
-Figure: Architecture diagram — based on `mermaid_diagram.md` and `architecture_diagram.md` in the repo.
+**Data Flow:**
+1. **Input** → User uploads ZIP, enters GitHub URL, or creates sample project
+2. **Analysis** → Code Analyzer extracts text from source files, comments, and documentation  
+3. **Processing** → TF-IDF Processor applies language-aware term weighting and domain boosting
+4. **Tagging** → Tag Engine maps features to human-readable tags with confidence scoring
+5. **Output** → Streamlit UI displays results with export options (CSV/JSON/Markdown)
 
 ## Contributing
 
