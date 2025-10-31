@@ -132,6 +132,183 @@ The app can create quick sample projects (ML, Web API, React) placed under `samp
 4. **Tagging** → Tag Engine maps features to human-readable tags with confidence scoring
 5. **Output** → Streamlit UI displays results with export options (CSV/JSON/Markdown)
 
+## Feature Analysis Diagram
+
+### Code Analyzer Detection Process
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        FEATURE ANALYSIS                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│     File Discovery                      Language Detection          │
+│  ┌─────────────────┐                 ┌─────────────────┐            │
+│  │ • README.*      │                 │ • File Extension│            │
+│  │ • *.py, *.js    │────────────────▶│ • Pygments      │            │
+│  │ • *.java, *.cpp │                 │ • Content Hints │            │
+│  │ • Skip .git/    │                 └─────────────────┘            │
+│  └─────────────────┘                           │                    │
+│           │                                    ▼                    │
+│           ▼                          ┌─────────────────┐            │
+│     Content Extraction               │ AST Parsing     │            │
+│  ┌─────────────────┐                 │ ┌─────────────┐ │            │
+│  │ • Docstrings    │◀────────────────┤ │ Python AST  │ │            │
+│  │ • Comments      │                 │ │ Functions   │ │            │
+│  │ • Identifiers   │                 │ │ Classes     │ │            │
+│  │ • Import Lists  │                 │ │ Imports     │ │            │
+│  └─────────────────┘                 │ └─────────────┘ │            │
+│           │                          │ ┌─────────────┐ │            │
+│           │                          │ │ Regex Parse │ │            │
+│           │                          │ │ JS/Java/C++ │ │            │
+│           │                          │ │ Comments    │ │            │
+│           │                          │ │ Functions   │ │            │
+│           │                          │ └─────────────┘ │            │
+│           │                          └─────────────────┘            │
+│           ▼                                    │                    │
+│      Text Aggregation                          │                    │
+│  ┌─────────────────────────────────────────────┼────────────────────┤
+│  │ Source Priority:                            ▼                    │
+│  │ • Imports        → 5x weight    ┌─────────────────┐              │
+│  │ • Documentation → 3x weight    │ Quality Metrics │              │
+│  │ • Identifiers   → 2x weight    │ • Doc ratio     │              │
+│  │ • README        → 1x weight    │ • Test presence │              │
+│  └─────────────────────────────────│ • README exists │              │
+│                                   │ • Perf keywords │              │
+│                                   └─────────────────┘              │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Tag Suggestion Engine Diagram
+
+### How Tags Are Generated and Scored
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       TAG SUGGESTION ENGINE                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│    Domain Detection                  TF-IDF Processing              │
+│  ┌─────────────────┐              ┌─────────────────┐              │
+│  │ Technology:     │              │ • Term Frequency│              │
+│  │ • flask→django  │              │ • Inverse Doc   │              │
+│  │ • pandas→ML     │──────────────│   Frequency     │              │
+│  │ • react→frontend│              │ • N-gram (1,2)  │              │
+│  │ Domain:         │              │ • Stop Words    │              │
+│  │ • model→ML      │              └─────────────────┘              │
+│  │ • api→web       │                        │                      │
+│  │ • test→quality  │                        ▼                      │
+│  └─────────────────┘              ┌─────────────────┐              │
+│           │                       │ Domain Boosting │              │
+│           │                       │ ┌─────────────┐ │              │
+│           │                       │ │ ML Terms    │ │              │
+│           │                       │ │ × 2.0       │ │              │
+│           │                       │ └─────────────┘ │              │
+│           │                       │ ┌─────────────┐ │              │
+│           │                       │ │ Framework   │ │              │
+│           │                       │ │ × 2.5       │ │              │
+│           │                       │ └─────────────┘ │              │
+│           │                       │ ┌─────────────┐ │              │
+│           │                       │ │ Quality     │ │              │
+│           │                       │ │ × 1.5       │ │              │
+│           │                       │ └─────────────┘ │              │
+│           │                       └─────────────────┘              │
+│           ▼                                 │                      │
+│      Tag Mapping                           │                      │
+│  ┌─────────────────────────────────────────┼──────────────────────┤
+│  │ Category Assignment:                    ▼                      │
+│  │                              ┌─────────────────┐              │
+│  │    Language Tags             │ Confidence Calc │              │
+│  │ • File count ratio           │ ┌─────────────┐ │              │
+│  │ • Primary language           │ │ Base Score  │ │              │
+│  │                              │ │ + Import    │ │              │
+│  │  Technology Tags           │ │ + TF-IDF    │ │              │
+│  │ • Import detection           │ │ + Patterns  │ │              │
+│  │ • Framework patterns         │ │ + SO Valid  │ │              │
+│  │                              │ └─────────────┘ │              │
+│  │    Domain Tags               │ ┌─────────────┐ │              │
+│  │ • Keyword clustering         │ │ SO Validation│ │              │
+│  │ • Context analysis           │ │ • Boost +20%│ │              │
+│  │                              │ │ • Similar   │ │              │
+│  │    Quality Tags              │ │ • Penalty   │ │              │
+│  │ • Documentation ratio        │ └─────────────┘ │              │
+│  │ • Test file presence         └─────────────────┘              │
+│  │ • README existence                     │                      │
+│  └────────────────────────────────────────┼──────────────────────┤
+│                                           ▼                      │
+│    Final Ranking                ┌─────────────────┐              │
+│  • Sort by confidence           │ Confidence Level │              │
+│  • Category filtering           │ • Very High 80%+ │              │
+│  • Max tag limits               │ • High     60%+ │              │
+│  • Reasoning generation         │ • Medium   40%+ │              │
+│                                 │ • Low      20%+ │              │
+│                                 └─────────────────┘              │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Codebase Insights Diagram
+
+### Analysis Metrics and Quality Assessment
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       CODEBASE INSIGHTS                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│    Language Distribution             Quality Assessment             │
+│  ┌─────────────────┐              ┌─────────────────┐              │
+│  │ File Counting:  │              │ Documentation:  │              │
+│  │ • .py files     │              │ • Docstrings    │              │
+│  │ • .js files     │──────────────│ • Comments      │              │
+│  │ • .java files   │              │ • README size   │              │
+│  │ • Extensions    │              │ • Ratio calc    │              │
+│  │ • Primary lang  │              └─────────────────┘              │
+│  └─────────────────┘                        │                      │
+│           │                                 ▼                      │
+│           ▼                        ┌─────────────────┐              │
+│     Domain Signals                 │ Test Detection  │              │
+│  ┌─────────────────┐               │ • test*.py      │              │
+│  │ Import Analysis:│               │ • *_test.js     │              │
+│  │ • ML: pandas,   │               │ • pytest        │              │
+│  │   sklearn, tf   │               │ • jest, mocha   │              │
+│  │ • Web: flask,   │               │ • unittest      │              │
+│  │   express, react│               └─────────────────┘              │
+│  │ • Data: numpy,  │                         │                      │
+│  │   matplotlib    │                         ▼                      │
+│  │ • Mobile: react-│               ┌─────────────────┐              │
+│  │   native, flutter│              │ Performance     │              │
+│  └─────────────────┘               │ • async/await   │              │
+│           │                        │ • cache         │              │
+│           ▼                        │ • optimization  │              │
+│     Term Analysis                  │ • parallel      │              │
+│  ┌─────────────────────────────────┤ • benchmark     │              │
+│  │ TF-IDF Top Terms:               └─────────────────┘              │
+│  │                                          │                      │
+│  │ 1. Extract 1000 features                ▼                      │
+│  │ 2. Calculate frequencies        ┌─────────────────┐              │
+│  │ 3. Apply domain boosting        │ Quality Score   │              │
+│  │ 4. Sort by relevance            │ ┌─────────────┐ │              │
+│  │ 5. Display top 20               │ │ README: 25% │ │              │
+│  │                                 │ │ Tests:  25% │ │              │
+│  │ Example Output:                 │ │ Docs:   25% │ │              │
+│  │ • flask: 0.891                  │ │ Perf:   25% │ │              │
+│  │ • app: 0.502                    │ └─────────────┘ │              │
+│  │ • model: 0.248                  │ Total: /100     │              │
+│  │ • data: 0.208                   └─────────────────┘              │
+│  └─────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  File Structure Analysis                                         │
+│  ┌─────────────────────────────────────────────────────────────────┤
+│  │ Structure Patterns:                                             │
+│  │ • src/ organization    → Well structured                        │
+│  │ • tests/ directory     → Test coverage                          │
+│  │ • docs/ folder         → Documentation                          │
+│  │ • requirements.txt     → Dependency management                  │
+│  │ • .gitignore           → Version control                        │
+│  │ • Multiple languages   → Polyglot project                       │
+│  └─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ## Contributing
 
 1. Fork the repo and create a branch for your feature.
